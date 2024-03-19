@@ -35,4 +35,4 @@ If you find any issues or have suggestions for improvements, feel free to open a
 
 This project is licensed under the [MIT License](LICENSE).
 
-Thank you for using the Hotel Management Backend! If you have any questions or need further assistance, please don't hesitate to contact us.
+Thank you for using the Hotel Management Backend! If you have any questions or need further assistance, please don't hesitate to contact me.
