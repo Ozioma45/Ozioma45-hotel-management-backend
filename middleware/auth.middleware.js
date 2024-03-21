@@ -1,6 +1,8 @@
 const jwt = require("jsonwebtoken");
 
+//authenticationa middleware
 const authenticateUser = (req, res, next) => {
+  //to get the token from request headers
   const token = req.headers.authorization;
 
   if (!token) {
@@ -8,6 +10,7 @@ const authenticateUser = (req, res, next) => {
   }
 
   try {
+    //to verify token
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     req.user = decoded.user;
     next();
@@ -16,6 +19,7 @@ const authenticateUser = (req, res, next) => {
   }
 };
 
+//authorize middleware
 const authorizeUser = (roles) => {
   return (req, res, next) => {
     if (!roles.includes(req.user.role)) {
