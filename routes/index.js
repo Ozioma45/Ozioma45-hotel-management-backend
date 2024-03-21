@@ -4,6 +4,11 @@ const router = express.Router();
 const RoomTypeModel = require("../models/room-types.model");
 const Room = require("../models/room.model");
 const appResponse = require("../utils/appResponse");
+const {
+  validateRoom,
+  createRoomSchema,
+  updateRoomSchema,
+} = require("../validators/roomValidator");
 
 router.post("/room-types", async (req, res) => {
   try {
@@ -178,6 +183,38 @@ router.get("/rooms/:id", async (req, res) => {
     // Handle any errors that occur during the database query
     console.error("Error fetching room:", error);
     res.status(500).json({ success: false, message: "Internal server error" });
+  }
+});
+
+// POST endpoint for creating a room
+router.post("/rooms", validateRoom(createRoomSchema), async (req, res) => {
+  // Process request if validation passes
+  try {
+    const newRoom = await Room.create(req.body);
+    res
+      .status(201)
+      .json({ message: "Room created successfully", data: newRoom });
+  } catch (error) {
+    res.status(500).json({ message: "Internal server error" });
+  }
+});
+
+// PATCH endpoint for updating a room
+router.patch("/rooms/:id", validateRoom(updateRoomSchema), async (req, res) => {
+  // Process request if validation passes
+  try {
+    const { id } = req.params;
+    const updatedRoom = await Room.findByIdAndUpdate(id, req.body, {
+      new: true,
+    });
+    if (!updatedRoom) {
+      return res.status(404).json({ message: "Room not found" });
+    }
+    res
+      .status(200)
+      .json({ message: "Room updated successfully", data: updatedRoom });
+  } catch (error) {
+    res.status(500).json({ message: "Internal server error" });
   }
 });
 
