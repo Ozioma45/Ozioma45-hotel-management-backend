@@ -4,11 +4,16 @@ const router = express.Router();
 const RoomTypeModel = require("../models/room-types.model");
 const Room = require("../models/room.model");
 const appResponse = require("../utils/appResponse");
-const {
-  validateRoom,
-  createRoomSchema,
-  updateRoomSchema,
-} = require("../validators/roomValidator");
+const { validate } = require("../middleware/validate.middleware");
+const Joi = require("joi");
+const bcrypt = require("bcrypt");
+const User = require("../models/user.model");
+
+// Define Joi schema for user registration validation
+const registrationSchema = Joi.object({
+  username: Joi.string().required(),
+  password: Joi.string().required().min(6), // Example: minimum password length of 6 characters
+});
 
 router.post("/room-types", async (req, res) => {
   try {
@@ -40,32 +45,43 @@ router.post("/room-types", async (req, res) => {
   }
 });
 
-router.post("/rooms", async (req, res) => {
-  try {
-    const { name, roomType, price } = req.body;
+// POST endpoint for creating a room
+router.post(
+  "/rooms",
+  authenticateUser,
+  authorizeUser(["admin"]),
+  validate(createRoomSchema),
+  async (req, res) => {
+    // Process request if validation passes
+    try {
+      const { name, roomType, price } = req.body;
 
-    // Validate input
-    if (!name || !roomType || !price) {
-      return res.status(400).json({ success: false, message: "Invalid input" });
+      // Validate input
+      if (!name || !roomType || !price) {
+        return res
+          .status(400)
+          .json({ success: false, message: "Invalid input" });
+      }
+
+      // Create new room
+      const newRoom = await Room.create({ name, roomType, price });
+
+      // Send success response
+      return res.status(201).json({
+        success: true,
+        message: "Room created successfully",
+        data: newRoom,
+      });
+    } catch (error) {
+      console.error("Error creating room:", error);
+      return res
+        .status(500)
+        .json({ success: false, message: "Internal server error" });
     }
-
-    // Create new room
-    const newRoom = await Room.create({ name, roomType, price });
-
-    // Send success response
-    return res.status(201).json({
-      success: true,
-      message: "Room created successfully",
-      data: newRoom,
-    });
-  } catch (error) {
-    console.error("Error creating room:", error);
-    return res
-      .status(500)
-      .json({ success: false, message: "Internal server error" });
   }
-});
+);
 
+//Get endpoint for fetching all rooms
 router.get("/room-types", async (req, res) => {
   try {
     // Fetch all room types from the database
@@ -186,35 +202,90 @@ router.get("/rooms/:id", async (req, res) => {
   }
 });
 
-// POST endpoint for creating a room
-router.post("/rooms", validateRoom(createRoomSchema), async (req, res) => {
-  // Process request if validation passes
+// Define Joi schema for request body validation
+const createRoomSchema = Joi.object({
+  name: Joi.string().required(),
+  roomType: Joi.string().required(),
+  price: Joi.number().required(),
+});
+
+// User registration endpoint
+router.post("/register", async (req, res) => {
   try {
-    const newRoom = await Room.create(req.body);
-    res
+    // Validate request body
+    const { error } = registrationSchema.validate(req.body);
+    if (error) {
+      return res.status(400).json({ message: error.details[0].message });
+    }
+
+    // Extract username and password from request body
+    const { username, password } = req.body;
+
+    // Check if user already exists
+    const existingUser = await User.findOne({ username });
+    if (existingUser) {
+      return res.status(400).json({ message: "User already exists" });
+    }
+
+    // Hash password
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    // Create new user
+    const newUser = await User.create({
+      username,
+      password: hashedPassword,
+      role: "guest", // Default role for new users
+    });
+
+    // Return success response
+    return res
       .status(201)
-      .json({ message: "Room created successfully", data: newRoom });
+      .json({ message: "User registered successfully", data: newUser });
   } catch (error) {
-    res.status(500).json({ message: "Internal server error" });
+    console.error("Error registering user:", error);
+    return res.status(500).json({ message: "Internal server error" });
   }
 });
 
-// PATCH endpoint for updating a room
-router.patch("/rooms/:id", validateRoom(updateRoomSchema), async (req, res) => {
-  // Process request if validation passes
+//Endpoint to change user role
+router.put("/users/:userId", async (req, res) => {
   try {
-    const { id } = req.params;
-    const updatedRoom = await Room.findByIdAndUpdate(id, req.body, {
-      new: true,
-    });
-    if (!updatedRoom) {
-      return res.status(404).json({ message: "Room not found" });
+    const { userId } = req.params;
+    const { role } = req.body;
+
+    // Validate if userId is a valid ObjectId
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid user ID",
+      });
     }
-    res
-      .status(200)
-      .json({ message: "Room updated successfully", data: updatedRoom });
+
+    // Check if the user exists
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    // Update the user's role
+    user.role = role;
+    await user.save();
+
+    // Return success response
+    return res.status(200).json({
+      success: true,
+      message: "User role updated successfully",
+      data: user,
+    });
   } catch (error) {
-    res.status(500).json({ message: "Internal server error" });
+    console.error("Error updating user role:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal server error",
+    });
   }
 });
 
