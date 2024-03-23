@@ -8,6 +8,10 @@ const { validate } = require("../middleware/validate.middleware");
 const Joi = require("joi");
 const bcrypt = require("bcrypt");
 const User = require("../models/user.model");
+const {
+  authenticateUser,
+  authorizeUser,
+} = require("../middleware/auth.middleware");
 
 // Define Joi schema for user registration validation
 const registrationSchema = Joi.object({
