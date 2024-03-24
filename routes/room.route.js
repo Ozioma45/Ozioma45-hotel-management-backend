@@ -3,6 +3,10 @@ const router = express.Router();
 const Room = require("../models/room.model");
 const Joi = require("joi");
 const mongoose = require("mongoose");
+const {
+  authenticateUser,
+  authorizeUser,
+} = require("../middleware/auth.middleware");
 
 // Define Joi schema for room creation validation
 const createRoomSchema = Joi.object({
@@ -12,7 +16,7 @@ const createRoomSchema = Joi.object({
 });
 
 // Create room endpoint
-router.post("/", async (req, res) => {
+router.post("/", authenticateUser, authorizeUser, async (req, res) => {
   try {
     // Validate request body
     const { error } = createRoomSchema.validate(req.body);
@@ -37,7 +41,7 @@ router.post("/", async (req, res) => {
 });
 
 // Delete room endpoint
-router.delete("/:roomId", async (req, res) => {
+router.delete("/:roomId", authenticateUser, authorizeUser, async (req, res) => {
   try {
     // Extract the room ID from request parameters
     const { roomId } = req.params;
@@ -72,6 +76,50 @@ router.delete("/:roomId", async (req, res) => {
   }
 });
 
+// Update room endpoint
+router.put("/:roomId", authenticateUser, authorizeUser, async (req, res) => {
+  try {
+    // Extract the room ID from request parameters
+    const { roomId } = req.params;
+
+    // Validate if roomId is a valid ObjectId
+    if (!mongoose.Types.ObjectId.isValid(roomId)) {
+      return res
+        .status(400)
+        .json({ success: false, message: "Invalid room ID" });
+    }
+
+    // Check if the room exists
+    const room = await Room.findById(roomId);
+    if (!room) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Room not found" });
+    }
+
+    // Extract updated room details from request body
+    const { name, roomType, price } = req.body;
+
+    // Update the room
+    room.name = name;
+    room.roomType = roomType;
+    room.price = price;
+    await room.save();
+
+    // Return success response with updated room data
+    return res.status(200).json({
+      success: true,
+      message: "Room updated successfully",
+      data: room,
+    });
+  } catch (error) {
+    console.error("Error updating room:", error);
+    return res
+      .status(500)
+      .json({ success: false, message: "Internal server error" });
+  }
+});
+
 // Retrieve all rooms endpoint
 router.get("/", async (req, res) => {
   try {
@@ -89,7 +137,7 @@ router.get("/", async (req, res) => {
 });
 
 // GET endpoint for fetching a room by its id
-router.get("/rooms/:id", async (req, res) => {
+router.get("/:id", async (req, res) => {
   try {
     const roomId = req.params.id;
 
@@ -112,9 +160,8 @@ router.get("/rooms/:id", async (req, res) => {
   }
 });
 
-//filter search
-//filter search
-router.get("/rooms", async (req, res) => {
+// Filter search
+router.get("/search", async (req, res) => {
   try {
     // Parse query parameters
     const { search, roomType, minPrice, maxPrice } = req.query;

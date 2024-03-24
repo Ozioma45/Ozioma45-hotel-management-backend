@@ -5,10 +5,14 @@ const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 
 const userSchema = new mongoose.Schema({
-  email: {
+  username: {
     type: String,
     required: true,
     unique: true,
+  },
+  email: {
+    type: String,
+    required: true,
   },
   password: {
     type: String,
@@ -45,7 +49,7 @@ userSchema.methods.generateToken = function () {
   return jwt.sign(
     {
       _id: this._id,
-      email: this.email,
+      username: this.username,
       role: this.role,
     },
     process.env.JWT_SECRET
