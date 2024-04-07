@@ -1,31 +1,29 @@
-require("dotenv").config();
+const dotenv = require("dotenv");
+dotenv.config();
 
 const express = require("express");
-const cors = require("cors");
-const connectDB = require("./db");
+const expressLayouts = require("express-ejs-layouts");
+const connectDB = require("./server/config/db");
+const routes = require("./routes/route");
+const authRoutes = require("./routes/auth.route");
 
-// Import routers
-const authRoutes = require("./controller/auth.controller");
-const roomRoutes = require("./routes/room.route");
-const userRoutes = require("./routes/user.route");
-
-const bodyParser = require("body-parser");
-
+// Initialize Express application
 const app = express();
+const PORT = process.env.PORT || 5000;
 
-app.use(cors());
-app.use(express.json());
-app.use(bodyParser.json());
-
+// Connect to MongoDB database
 connectDB();
 
-// Routes
-app.use("/api/auth", authRoutes);
-app.use("/api/rooms", roomRoutes);
-app.use("/api/users", userRoutes);
+app.use(express.static("public"));
+app.use(express.json());
+app.use(expressLayouts);
+app.set("layout", "./layouts/main");
+app.set("view engine", "ejs");
 
-// Start the server
-const PORT = process.env.PORT || 4000;
+// Routes
+app.use("/api/v1", routes);
+app.use("/api/v1", authRoutes);
+// Start server
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
 });
